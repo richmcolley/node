@@ -1,0 +1,47 @@
+const express = require('express');
+const router = express.Router();
+const mongoose = require('mongoose');
+const mysql = require('mysql');
+const config = require('../../config/config');
+
+// Connect to MongoDB using Mongoose
+mongoose.connect(config.database.mongoUrl, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+});
+
+// Create a MySQL connection pool
+const mysqlPool = mysql.createPool(config.database.mysql);
+
+router.get('/combinedData', async (req, res) => {
+    try {
+        // Retrieve data from MongoDB
+        const mongoData = await mongoose.model('YourMongoModel').find();
+
+        // Retrieve data from MySQL
+        mysqlPool.getConnection((err, connection) => {
+            if (err) {
+                return res.status(500).json({ message: 'Error retrieving MySQL data' });
+            }
+            connection.query('SELECT * FROM your_mysql_table', (error, mysqlData) => {
+                connection.release();
+                if (error) {
+                    return res.status(500).json({ message: 'Error retrieving MySQL data' });
+                }
+
+                // Combine data from both databases
+                const combinedData = {
+                    mongoData,
+                    mysqlData,
+                };
+
+                // Send combined data in the response
+                res.json(combinedData);
+            });
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error retrieving data' });
+    }
+});
+
+module.exports = router;
